@@ -1,0 +1,14 @@
+{
+  "name": "firstmed-documentation",
+  "version": "1.0.0",
+  "description": "FirstMed API documentation",
+  "private": true,
+  "scripts": {
+    "docs:dev": "vitepress dev",
+    "docs:build": "vitepress build",
+    "docs:preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.3"
+  }
+}

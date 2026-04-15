@@ -1,29 +1,16 @@
 # GET /b2b/companies/:company_id/lessons
 
-Returns all upcoming lessons taking place at venues owned by the specified company (Auto-Écoles).
-
-A lesson is considered **upcoming** when its earliest session (`min_periode`) starts at least 2 hours from now. Results are ordered by earliest session date ascending.
+Returns all upcoming lessons taking place at venues owned by the specified company (Auto-Écoles). Results are ordered by earliest session date ascending.
 
 ---
 
 ## Authentication
 
-Bearer JWT token required.
+A Bearer JWT token is required in every request.
 
 ```
 Authorization: Bearer <token>
 ```
-
----
-
-## Authorization
-
-| Role | Condition |
-|------|-----------|
-| **Admin** | Always allowed |
-| **School** (role_id 4) | Allowed only if the authenticated user is linked to the company via `companies_users` |
-
-Any other role receives `403 Forbidden`.
 
 ---
 
@@ -39,7 +26,7 @@ GET /b2b/companies/{company_id}/lessons.json
 |-----------|------|-------------|
 | `company_id` | integer | ID of the company (Auto-École) |
 
-### Query Parameters (pagination)
+### Query Parameters
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
@@ -101,8 +88,8 @@ GET /b2b/companies/{company_id}/lessons.json
         "code": "ECA",
         "zip": "1003",
         "street": "13, av. Louis Ruchonnet",
-        "capacity": 14,
         "street_extra": "",
+        "capacity": 14,
         "city_id": 1,
         "lat": 46.518257,
         "lng": 6.626263,
@@ -163,25 +150,37 @@ GET /b2b/companies/{company_id}/lessons.json
 | Field | Type | Description |
 |-------|------|-------------|
 | `id` | integer | Lesson ID |
+| `lesson_type_id` | integer | ID of the lesson type |
+| `place_id` | integer | ID of the venue |
 | `code` | string | Unique lesson code (e.g. `ECA1140`) |
 | `count` | integer | Sequential count number |
+| `created` | string | Creation datetime (ISO 8601) |
+| `modified` | string | Last modification datetime (ISO 8601) |
 | `price` | float | Lesson price (CHF) |
 | `max_subscriptors` | integer | Maximum number of participants |
-| `subscriptions` | integer | Current number of subscriptions |
-| `applications` | integer | Number of teacher applications |
-| `application_booked` | integer | Number of booked applications |
 | `is_public` | boolean | Whether the lesson is publicly visible |
-| `is_complete` | boolean | Whether the lesson is fully booked |
+| `subscriptions` | integer | Current number of confirmed subscriptions |
+| `applications` | integer | Number of teacher applications |
+| `application_booked` | integer | Number of booked teacher applications |
+| `old_id` | integer\|null | Legacy ID (if migrated) |
+| `is_complete` | boolean | `true` when the lesson is fully booked |
 | `is_sent` | boolean | Whether confirmation emails have been sent |
 | `is_validate` | boolean | Whether the lesson has been validated |
 | `contact_person` | string\|null | Contact person name |
 | `description` | string\|null | Lesson description |
-| `optional_*` | string\|null | Optional location/contact overrides |
+| `extra` | string\|null | Extra information |
+| `optional_company` | string\|null | Optional company name override |
+| `optional_phone` | string\|null | Optional phone override |
+| `optional_email` | string\|null | Optional email override |
+| `optional_address` | string\|null | Optional address override |
+| `optional_city` | string\|null | Optional city override |
+| `optional_zip` | string\|null | Optional postal code override |
+| `optional_comment` | string\|null | Optional comment override |
 | `periodes` | array | All scheduled sessions (see below) |
 | `place` | object | Venue details (see below) |
 | `lesson_type` | object | Lesson type details (see below) |
-| `min_periode` | object | Earliest session |
-| `max_periode` | object | Latest session |
+| `min_periode` | object | Earliest session — useful for displaying the start date |
+| `max_periode` | object | Latest session — useful for displaying the end date |
 
 #### Periode (session)
 
@@ -190,8 +189,8 @@ GET /b2b/companies/{company_id}/lessons.json
 | `id` | integer | Session ID |
 | `lesson_id` | integer | Parent lesson ID |
 | `date` | string | Session date (`YYYY-MM-DD`) |
-| `start` | string | Start time (ISO 8601) |
-| `end` | string | End time (ISO 8601) |
+| `start` | string | Start datetime (ISO 8601) |
+| `end` | string | End datetime (ISO 8601) |
 | `breaktime_id` | integer | Break time configuration ID |
 
 #### Place (venue)
@@ -200,15 +199,29 @@ GET /b2b/companies/{company_id}/lessons.json
 |-------|------|-------------|
 | `id` | integer | Place ID |
 | `name` | string | Venue name |
-| `code` | string | Venue code |
-| `street` | string | Street address |
-| `zip` | string | Postal code |
-| `lat` / `lng` | float | GPS coordinates |
-| `capacity` | integer | Room capacity |
 | `is_partner` | boolean | Whether it is a partner venue |
+| `code` | string | Venue code |
+| `zip` | string | Postal code |
+| `street` | string | Street address |
+| `street_extra` | string\|null | Additional address line |
+| `capacity` | integer | Room capacity |
+| `city_id` | integer | ID of the city |
+| `lat` / `lng` | float | GPS coordinates |
+| `slug` | string | URL slug |
+| `price` | float | Default lesson price at this venue (CHF) |
 | `mail` | string\|null | Contact email |
 | `phone` | string\|null | Contact phone |
-| `city` | object | City with `id`, `name`, `slug`, `lat`, `lng`, `state_id` |
+| `city` | object | City details (see below) |
+
+#### City
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | integer | City ID |
+| `name` | string | City name |
+| `lat` / `lng` | float | GPS coordinates |
+| `slug` | string | URL slug |
+| `state_id` | integer | ID of the canton/state |
 
 #### LessonType
 
@@ -240,7 +253,7 @@ No token or invalid/expired token.
 ```
 
 ### 403 Forbidden
-Valid token but user is not linked to this company (and is not Admin).
+Valid token but the user does not have access to this company's data.
 
 ```json
 {
@@ -252,22 +265,3 @@ Valid token but user is not linked to this company (and is not Admin).
   }
 }
 ```
-
----
-
-## Implementation Notes
-
-- Only lessons at places where the company has `is_owner = 1` in `companies_places` are returned.
-- "Upcoming" is defined as `min_periode.date + min_periode.start >= NOW() + 2 hours`.
-- Results are ordered by `min_periode.date ASC` then `min_periode.start ASC`.
-- The `companies_users` join table controls which users (role `School`) can access which company's data.
-
----
-
-## Files
-
-| File | Description |
-|------|-------------|
-| `src/Controller/B2b/Companies/LessonsController.php` | Controller |
-| `config/routes.php` | Route definition |
-| `config/permissions.php` | RBAC permission entry |
